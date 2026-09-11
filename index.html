@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>蔬食羽球 智慧排場助手</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f4;
+            --primary-green: #2e7d32;
+            --court-green: #1b5e20;
+            --court-surface: #43a047;
+            --veggie-yellow: #fff9c4;
+            --veggie-yellow-border: #fbc02d;
+            --accent-orange: #ff9800;
+            --dark-card: #ffffff;
+            --text-dark: #1b2e1b;
+            --text-muted: #667e66;
+            --shadow: 0 4px 12px rgba(46, 125, 50, 0.08);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-dark); padding: 12px; padding-bottom: 70px; }
+
+        /* 標頭運動風格 Header */
+        .app-header {
+            background: linear-gradient(135deg, #1b5e20 0%, #388e3c 100%);
+            color: white;
+            padding: 14px 16px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 15px rgba(27, 94, 32, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .app-title { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 6px; letter-spacing: 0.5px; }
+
+        /* 區塊卡片 */
+        .section {
+            background: var(--dark-card);
+            border-radius: 16px;
+            padding: 14px;
+            margin-bottom: 14px;
+            box-shadow: var(--shadow);
+            border: 1px solid #e8f5e9;
+        }
+
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--primary-green);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        input, select, button, textarea {
+            padding: 9px 12px; border-radius: 10px; border: 1.5px solid #c8e6c9; font-size: 0.9rem; outline: none;
+            transition: all 0.2s;
+        }
+        input:focus, textarea:focus, select:focus { border-color: var(--primary-green); }
+
+        /* 按鈕視覺強化 */
+        .btn { border: none; font-weight: 700; cursor: pointer; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; }
+        .btn-primary { background: linear-gradient(135deg, #2e7d32, #43a047); color: white; box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3); }
+        .btn-danger { background: linear-gradient(135deg, #e53935, #d32f2f); color: white; }
+        
+        /* 場地按鈕樣式 */
+        .btn-court { 
+            background: #e8f5e9; 
+            color: #1b5e20; 
+            border: 1px solid #a5d6a7; 
+            padding: 4px 2px; 
+            font-size: 0.7rem; 
+            font-weight: bold;
+            width: 100%;
+            text-align: center;
+            border-radius: 6px;
+            line-height: 1.1;
+            cursor: pointer;
+        }
+        .btn-court:active { background: #c8e6c9; }
+        
+        /* 預備區滿員時的灰色停用樣式 */
+        .btn-disabled {
+            background: #eeeeee !important;
+            color: #9e9e9e !important;
+            border-color: #e0e0e0 !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+        }
+
+        .btn-sm { font-size: 0.8rem; padding: 6px 10px; }
+
+        /* 羽球場地風格面板 */
+        .court-card {
+            background: #f1f8e9;
+            border: 2px solid #81c784;
+            border-radius: 14px;
+            padding: 12px;
+            margin-bottom: 12px;
+            position: relative;
+        }
+        .court-title { font-weight: 800; color: #1b5e20; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .player-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; min-height: 42px; background: #ffffff; padding: 8px; border-radius: 10px; border: 1.5px dashed #a5d6a7; }
+        .chip {
+            background: #e8f5e9; color: #1b5e20; padding: 5px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #c8e6c9;
+        }
+        .chip-playing { background: #c8e6c9; color: #0d3810; border-color: #81c784; }
+
+        /* 等待休息區卡片 */
+        .player-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); 
+            gap: 8px; 
+        }
+        .player-card {
+            background: white;
+            border: 1.5px solid #e8f5e9;
+            border-radius: 10px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+        }
+        
+        /* 蔬食黃（次數少高亮） */
+        .player-card.highlight {
+            background-color: var(--veggie-yellow);
+            border-color: var(--veggie-yellow-border);
+            box-shadow: 0 2px 6px rgba(251, 192, 45, 0.25);
+        }
+        .player-name { font-weight: 800; font-size: 0.88rem; color: var(--text-dark); display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+        .player-badge { font-size: 0.65rem; background: #e8f5e9; color: var(--primary-green); padding: 1px 4px; border-radius: 4px; font-weight: bold; }
+        .player-info { font-size: 0.72rem; color: var(--text-muted); margin: 1px 0; }
+        
+        .court-btns { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); 
+            gap: 4px; 
+            margin-top: 6px; 
+            width: 100%;
+        }
+
+        /* 紀錄區 */
+        .log-list { font-size: 0.8rem; color: #444; max-height: 140px; overflow-y: auto; background: #f9fbf9; padding: 10px; border-radius: 10px; border: 1px solid #e8f5e9; }
+        .log-item { border-bottom: 1px dashed #c8e6c9; padding: 5px 0; }
+        .log-item:last-child { border-bottom: none; }
+    </style>
+</head>
+<body>
+
+    <!-- 頂部 Header -->
+    <div class="app-header">
+        <div class="app-title">🥬🏸 蔬食羽球排場</div>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white;" onclick="toggleInputSection()">⚙️ 批次加入</button>
+    </div>
+
+    <!-- 活動地點與設定 -->
+    <div class="section">
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display:flex; gap:6px; align-items:center;">
+                <label style="white-space:nowrap; font-size:0.85rem; font-weight:bold; color:var(--primary-green);">📍 地點：</label>
+                <input type="text" id="locationInput" placeholder="輸入球館名稱 (例: 奧創土城館)" style="flex:1;" onchange="saveData()">
+            </div>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <label style="white-space:nowrap; font-size:0.85rem; font-weight:bold; color:var(--primary-green);">🏟️ 場地數：</label>
+                <select id="courtCountSelect" onchange="changeCourtCount()" style="flex:1; font-weight:bold;">
+                    <option value="1">1 個場地</option>
+                    <option value="2">2 個場地</option>
+                    <option value="3">3 個場地</option>
+                    <option value="4">4 個場地</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- 複製貼上批次新增人員區塊 -->
+    <div id="inputSection" class="section" style="display:none; background:#f1f8e9;">
+        <div class="section-title">
+            <span>📋 複製貼上新增人員</span>
+            <span style="font-size:0.75rem; color:#666; font-weight:normal;">自動過濾編號數字</span>
+        </div>
+        <textarea id="batchNameInput" rows="4" placeholder="請直接貼上名單，例如：&#10;1. 姵彤&#10;2.小胖&#10;3.建霖" style="width:100%; margin-bottom:8px; resize:none;"></textarea>
+        <div style="display:flex; gap:8px; justify-content:space-between;">
+            <button class="btn btn-primary" style="flex:1;" onclick="addBatchPlayers()">✨ 批次新增球員</button>
+            <button class="btn btn-danger btn-sm" onclick="resetAllData()">⚠️ 清空今天紀錄</button>
+        </div>
+        <div id="playerManageList" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;"></div>
+    </div>
+
+    <!-- 第一與第二區塊：場地對戰與預備區 -->
+    <div class="section">
+        <div class="section-title">🎾 場地對戰與預備</div>
+        <div id="courtsContainer"></div>
+    </div>
+
+    <!-- 第三區塊：等待休息區 (智慧高亮) -->
+    <div class="section">
+        <div class="section-title">
+            <span>👥 等待休息區</span>
+            <span style="font-size:0.75rem; font-weight:normal; background:#fff9c4; color:#f57f17; padding:2px 6px; border-radius:6px; border:1px solid #fbc02d;">🟨 上場次數較少</span>
+        </div>
+        <div id="waitingList" class="player-grid"></div>
+    </div>
+
+    <!-- 第四區塊：歷史紀錄 -->
+    <div class="section">
+        <div class="section-title">📜 對戰歷史紀錄</div>
+        <div id="logList" class="log-list">尚無紀錄</div>
+    </div>
+
+    <script>
+        // 核心資料結構
+        let state = {
+            location: "",
+            courtCount: 1,
+            courtNames: { 1: "場地 1", 2: "場地 2", 3: "場地 3", 4: "場地 4" },
+            players: [], // { id, name, count: 0, lastPlayedTime: null, status: 'idle' }
+            courts: { 1: [] },
+            queues: { 1: [] },
+            logs: []
+        };
+
+        window.onload = function() {
+            loadData();
+            setInterval(updateIdleTimes, 1000);
+            render();
+        };
+
+        function saveData() {
+            state.location = document.getElementById('locationInput').value;
+            localStorage.setItem('veggie_badminton_state', JSON.stringify(state));
+        }
+
+        function loadData() {
+            const saved = localStorage.getItem('veggie_badminton_state');
+            if (saved) {
+                try {
+                    state = JSON.parse(saved);
+                    document.getElementById('locationInput').value = state.location || "";
+                    document.getElementById('courtCountSelect').value = state.courtCount || 1;
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function resetAllData() {
+            if (confirm("確定要重置所有球員資料與對戰紀錄嗎？")) {
+                localStorage.removeItem('veggie_badminton_state');
+                location.reload();
+            }
+        }
+
+        function addBatchPlayers() {
+            const text = document.getElementById('batchNameInput').value;
+            if (text.trim()) {
+                parseAndAddNames(text);
+                document.getElementById('batchNameInput').value = '';
+                saveData();
+                render();
+            }
+        }
+
+        function parseAndAddNames(rawText) {
+            const lines = rawText.split(/[\n,\r、]+/).map(n => n.trim()).filter(n => n.length > 0);
+            
+            lines.forEach(line => {
+                let cleanedName = line.replace(/^[0-9]+\s*[\.\s、\-_]*/, '').trim();
+                
+                if (cleanedName.length > 0) {
+                    state.players.push({
+                        id: Date.now() + Math.random().toString().substr(2, 5),
+                        name: cleanedName,
+                        count: 0,
+                        lastPlayedTime: Date.now(),
+                        status: 'idle'
+                    });
+                }
+            });
+        }
+
+        function changeCourtCount() {
+            const count = parseInt(document.getElementById('courtCountSelect').value);
+            state.courtCount = count;
+            for (let i = 1; i <= count; i++) {
+                if (!state.courts[i]) state.courts[i] = [];
+                if (!state.queues[i]) state.queues[i] = [];
+                if (!state.courtNames[i]) state.courtNames[i] = `場地 ${i}`;
+            }
+            saveData();
+            render();
+        }
+
+        function updateCourtName(courtNum, name) {
+            state.courtNames[courtNum] = name || `場地 ${courtNum}`;
+            saveData();
+        }
+
+        function toggleInputSection() {
+            const sec = document.getElementById('inputSection');
+            sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function removePlayer(id) {
+            state.players = state.players.filter(p => p.id !== id);
+            for (let c in state.courts) {
+                state.courts[c] = state.courts[c].filter(pid => pid !== id);
+                state.queues[c] = state.queues[c].filter(pid => pid !== id);
+            }
+            saveData();
+            render();
+        }
+
+        function joinQueue(playerId, courtNum) {
+            if ((state.queues[courtNum] || []).length >= 4) {
+                return; // 滿員防護
+            }
+            const player = state.players.find(p => p.id === playerId);
+            if (player) {
+                player.status = 'queued';
+                state.queues[courtNum].push(playerId);
+                saveData();
+                render();
+            }
+        }
+
+        function removeFromQueue(playerId, courtNum) {
+            const player = state.players.find(p => p.id === playerId);
+            if (player) {
+                player.status = 'idle';
+                state.queues[courtNum] = state.queues[courtNum].filter(id => id !== playerId);
+                saveData();
+                render();
+            }
+        }
+
+        function startMatch(courtNum) {
+            if (state.queues[courtNum].length < 4) {
+                alert("預備區滿 4 人才能進入場地打球！");
+                return;
+            }
+            if (state.courts[courtNum].length > 0) {
+                alert("目前場地上有人正在打球，請先點擊「結束對戰」！");
+                return;
+            }
+
+            state.courts[courtNum] = [...state.queues[courtNum]];
+            state.queues[courtNum] = [];
+
+            state.courts[courtNum].forEach(pid => {
+                const p = state.players.find(x => x.id === pid);
+                if (p) p.status = 'playing';
+            });
+
+            saveData();
+            render();
+        }
+
+        function finishMatch(courtNum) {
+            const pIds = state.courts[courtNum];
+            if (pIds.length === 0) return;
+
+            const now = Date.now();
+            const names = [];
+
+            pIds.forEach(pid => {
+                const p = state.players.find(x => x.id === pid);
+                if (p) {
+                    p.count += 1;
+                    p.lastPlayedTime = now;
+                    p.status = 'idle';
+                    names.push(p.name);
+                }
+            });
+
+            const d = new Date();
+            const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+            const locStr = state.location ? `[${state.location}] ` : '';
+            const logText = `${dateStr} ${locStr}${state.courtNames[courtNum]}：${names.join(', ')}`;
+            state.logs.unshift(logText);
+
+            state.courts[courtNum] = [];
+            saveData();
+            render();
+        }
+
+        function formatIdleTime(timestamp) {
+            if (!timestamp) return "全新下場";
+            const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+            const hrs = Math.floor(diffSec / 3600);
+            const mins = Math.floor((diffSec % 3600) / 60);
+            const secs = diffSec % 60;
+
+            const mm = mins.toString().padStart(2, '0');
+            const ss = secs.toString().padStart(2, '0');
+
+            return hrs > 0 ? `${hrs}時${mm}分${ss}秒` : `${mm}分${ss}秒`;
+        }
+
+        function updateIdleTimes() {
+            state.players.forEach(p => {
+                if (p.status === 'idle') {
+                    const elem = document.getElementById(`idle-time-${p.id}`);
+                    if (elem) elem.innerText = formatIdleTime(p.lastPlayedTime);
+                }
+            });
+        }
+
+        function render() {
+            renderCourts();
+            renderWaitingList();
+            renderPlayerManager();
+            renderLogs();
+        }
+
+        function renderCourts() {
+            const container = document.getElementById('courtsContainer');
+            container.innerHTML = '';
+
+            for (let i = 1; i <= state.courtCount; i++) {
+                const cDiv = document.createElement('div');
+                cDiv.className = 'court-card';
+
+                const playingChips = (state.courts[i] || []).map(pid => {
+                    const p = state.players.find(x => x.id === pid);
+                    return `<span class="chip chip-playing">🏸 ${p ? p.name : ''}</span>`;
+                }).join('');
+
+                const queueChips = (state.queues[i] || []).map(pid => {
+                    const p = state.players.find(x => x.id === pid);
+                    return `<span class="chip" onclick="removeFromQueue('${pid}', ${i})">${p ? p.name : ''} ✖</span>`;
+                }).join('');
+
+                const isPlaying = state.courts[i] && state.courts[i].length > 0;
+
+                cDiv.innerHTML = `
+                    <div class="court-title">
+                        <input type="text" value="${state.courtNames[i]}" style="font-weight:800; border:none; background:transparent; width:110px; font-size:1rem; color:#1b5e20;" onchange="updateCourtName(${i}, this.value)">
+                        ${isPlaying ? `<button class="btn btn-danger btn-sm" onclick="finishMatch(${i})">🛑 結束對戰</button>` : `<span style="font-size:0.8rem; color:#66bb6a; font-weight:bold;">● 空閒中</span>`}
+                    </div>
+                    
+                    <div style="font-size:0.78rem; color:#2e7d32; font-weight:bold;">比賽中 (4人)：</div>
+                    <div class="player-chips">${playingChips || '<span style="color:#aaa; font-size:0.8rem;">尚未開始</span>'}</div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                        <span style="font-size:0.78rem; color:#2e7d32; font-weight:bold;">預備隊伍 (${(state.queues[i]||[]).length}/4)：</span>
+                        <button class="btn btn-primary btn-sm" onclick="startMatch(${i})">進場打球 ➔</button>
+                    </div>
+                    <div class="player-chips">${queueChips || '<span style="color:#aaa; font-size:0.8rem;">點擊下方球員卡片可加入預備</span>'}</div>
+                `;
+                container.appendChild(cDiv);
+            }
+        }
+
+        function renderWaitingList() {
+            const container = document.getElementById('waitingList');
+            container.innerHTML = '';
+
+            const idlePlayers = state.players.filter(p => p.status === 'idle');
+
+            let minCount = Infinity;
+            if (idlePlayers.length > 0) {
+                minCount = Math.min(...idlePlayers.map(p => p.count));
+            }
+
+            idlePlayers.forEach(p => {
+                const isMin = (p.count === minCount);
+                const card = document.createElement('div');
+                card.className = `player-card ${isMin ? 'highlight' : ''}`;
+
+                let courtBtns = '';
+                for (let c = 1; c <= state.courtCount; c++) {
+                    const displayName = state.courtNames[c] || `${c}場`;
+                    
+                    // 判斷該場地的預備隊伍是否已滿 4 人
+                    const isFull = (state.queues[c] || []).length >= 4;
+                    const btnClass = isFull ? "btn btn-court btn-disabled" : "btn btn-court";
+                    const disabledAttr = isFull ? "disabled" : "";
+
+                    courtBtns += `<button class="${btnClass}" ${disabledAttr} onclick="joinQueue('${p.id}', ${c})">${displayName}</button>`;
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="player-name">
+                            <span>${p.name}</span>
+                            ${isMin ? '<span class="player-badge">優先</span>' : ''}
+                        </div>
+                        <div class="player-info">次數：<b>${p.count}</b></div>
+                        <div class="player-info"><b id="idle-time-${p.id}">${formatIdleTime(p.lastPlayedTime)}</b></div>
+                    </div>
+                    <div class="court-btns">
+                        ${courtBtns}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            if (idlePlayers.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; color:#888; font-size:0.85rem; padding:15px;">尚無球員或全員皆在預備/比賽中 🏸<br><span style="font-size:0.75rem;">(請點選右上角「⚙️ 批次加入」貼上名單)</span></div>`;
+            }
+        }
+
+        function renderPlayerManager() {
+            const container = document.getElementById('playerManageList');
+            container.innerHTML = state.players.map(p => `
+                <span style="background:#fff; border:1px solid #c8e6c9; padding:4px 10px; border-radius:16px; font-size:0.85rem; display:inline-flex; align-items:center; gap:4px; font-weight:bold;">
+                    ${p.name}
+                    <b onclick="removePlayer('${p.id}')" style="color:#e53935; cursor:pointer; margin-left:4px;">&times;</b>
+                </span>
+            `).join('');
+        }
+
+        function renderLogs() {
+            const logContainer = document.getElementById('logList');
+            if (!state.logs || state.logs.length === 0) {
+                logContainer.innerHTML = '尚無紀錄';
+                return;
+            }
+            logContainer.innerHTML = state.logs.map(log => `<div class="log-item">${log}</div>`).join('');
+        }
+    </script>
+</body>
+</html>
