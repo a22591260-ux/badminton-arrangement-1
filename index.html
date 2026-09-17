@@ -155,6 +155,19 @@
         .manage-table th, .manage-table td { border-bottom: 1px solid #e8f5e9; padding: 6px 4px; text-align: left; }
         .manage-table th { color: var(--primary-green); font-weight: bold; }
 
+        /* 金額統計卡片 */
+        .summary-box {
+            background: #ffffff;
+            border: 1.5px solid #a5d6a7;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
         /* 紀錄區 */
         .log-list { font-size: 0.8rem; color: #444; max-height: 140px; overflow-y: auto; background: #f9fbf9; padding: 10px; border-radius: 10px; border: 1px solid #e8f5e9; }
         .log-item { border-bottom: 1px dashed #c8e6c9; padding: 5px 0; }
@@ -207,8 +220,24 @@
                 <span id="manageTableArrow">▼</span>
             </button>
             
-            <!-- 預設隱藏的簽到與繳費表格 -->
+            <!-- 預設隱藏的簽到與繳費表格與金額計算器 -->
             <div id="manageTableWrapper" style="display:none; overflow-x:auto;">
+                <!-- 金額計算區塊 -->
+                <div class="summary-box">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-weight:bold; color:var(--primary-green);">💰 每人費用設定：</span>
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <input type="number" id="feePerPerson" value="200" style="width:70px; text-align:right; font-weight:bold;" onchange="saveData(); render();">
+                            <span style="font-size:0.8rem;">元</span>
+                        </div>
+                    </div>
+                    <hr style="border:none; border-top:1px dashed #c8e6c9; margin:2px 0;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
+                        <span>💵 實收總金額：<b id="totalPaidAmount" style="color:#2e7d32; font-size:1.1rem;">0</b> 元</span>
+                        <span style="font-size:0.75rem; color:#666;">(已繳 <b id="paidCount">0</b> 人 / 未繳 <b id="unpaidCount">0</b> 人)</span>
+                    </div>
+                </div>
+
                 <table class="manage-table">
                     <thead>
                         <tr>
@@ -251,6 +280,7 @@
             location: "",
             courtCount: 1,
             courtNames: { 1: "場地 1", 2: "場地 2", 3: "場地 3", 4: "場地 4" },
+            feePerPerson: 200,
             players: [], 
             courts: { 1: [] },
             queues: { 1: [] },
@@ -265,6 +295,7 @@
 
         function saveData() {
             state.location = document.getElementById('locationInput').value;
+            state.feePerPerson = parseInt(document.getElementById('feePerPerson').value) || 0;
             localStorage.setItem('veggie_badminton_state', JSON.stringify(state));
         }
 
@@ -275,6 +306,7 @@
                     state = JSON.parse(saved);
                     document.getElementById('locationInput').value = state.location || "";
                     document.getElementById('courtCountSelect').value = state.courtCount || 1;
+                    document.getElementById('feePerPerson').value = state.feePerPerson || 200;
                 } catch(e) { console.error(e); }
             }
         }
@@ -309,9 +341,9 @@
                         count: 0,
                         lastPlayedTime: Date.now(),
                         status: 'idle',
-                        checkedIn: false,  // 預設未簽到
-                        isPaid: false,     // 預設未繳費
-                        note: ''           // 備註欄位
+                        checkedIn: false,
+                        isPaid: false,
+                        note: ''
                     });
                 }
             });
@@ -339,7 +371,6 @@
             sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
         }
 
-        // 折疊/展開 管理表格
         function toggleManageTable() {
             const wrapper = document.getElementById('manageTableWrapper');
             const arrow = document.getElementById('manageTableArrow');
@@ -507,6 +538,18 @@
             renderWaitingList();
             renderPlayerManager();
             renderLogs();
+            calculateSummary();
+        }
+
+        function calculateSummary() {
+            const fee = parseInt(document.getElementById('feePerPerson').value) || 0;
+            const paidCount = state.players.filter(p => p.isPaid).length;
+            const unpaidCount = state.players.length - paidCount;
+            const totalAmount = paidCount * fee;
+
+            document.getElementById('paidCount').innerText = paidCount;
+            document.getElementById('unpaidCount').innerText = unpaidCount;
+            document.getElementById('totalPaidAmount').innerText = totalAmount.toLocaleString();
         }
 
         function renderCourts() {
@@ -559,7 +602,6 @@
             const container = document.getElementById('waitingList');
             container.innerHTML = '';
 
-            // 僅顯示 已簽到 且 閒置 中球員
             const idlePlayers = state.players.filter(p => p.status === 'idle' && p.checkedIn);
 
             let minCount = Infinity;
