@@ -57,7 +57,7 @@
         }
 
         input, select, button, textarea {
-            padding: 9px 12px; border-radius: 10px; border: 1.5px solid #c8e6c9; font-size: 0.9rem; outline: none;
+            padding: 8px 10px; border-radius: 10px; border: 1.5px solid #c8e6c9; font-size: 0.88rem; outline: none;
             transition: all 0.2s;
         }
         input:focus, textarea:focus, select:focus { border-color: var(--primary-green); }
@@ -67,6 +67,7 @@
         .btn-primary { background: linear-gradient(135deg, #2e7d32, #43a047); color: white; box-shadow: 0 2px 6px rgba(46, 125, 50, 0.3); }
         .btn-danger { background: linear-gradient(135deg, #e53935, #d32f2f); color: white; }
         .btn-warning { background: linear-gradient(135deg, #ff9800, #f57c00); color: white; }
+        .btn-secondary { background: #e0e0e0; color: #424242; }
         
         /* 場地按鈕樣式 */
         .btn-court { 
@@ -84,7 +85,6 @@
         }
         .btn-court:active { background: #c8e6c9; }
         
-        /* 預備區滿員時的灰色停用樣式 */
         .btn-disabled {
             background: #eeeeee !important;
             color: #9e9e9e !important;
@@ -93,7 +93,7 @@
             box-shadow: none !important;
         }
 
-        .btn-sm { font-size: 0.8rem; padding: 6px 10px; }
+        .btn-sm { font-size: 0.8rem; padding: 5px 8px; }
 
         /* 羽球場地風格面板 */
         .court-card {
@@ -115,7 +115,7 @@
         /* 等待休息區卡片 */
         .player-grid { 
             display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr)); 
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); 
             gap: 8px; 
         }
         .player-card {
@@ -138,6 +138,9 @@
         .player-name { font-weight: 800; font-size: 0.88rem; color: var(--text-dark); display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
         .player-badge { font-size: 0.65rem; background: #e8f5e9; color: var(--primary-green); padding: 1px 4px; border-radius: 4px; font-weight: bold; }
         .player-info { font-size: 0.72rem; color: var(--text-muted); margin: 1px 0; }
+        .pay-tag { font-size: 0.65rem; padding: 1px 4px; border-radius: 4px; font-weight: bold; }
+        .pay-paid { background: #e8f5e9; color: #2e7d32; }
+        .pay-unpaid { background: #ffebee; color: #c62828; }
         
         .court-btns { 
             display: grid; 
@@ -146,6 +149,11 @@
             margin-top: 6px; 
             width: 100%;
         }
+
+        /* 管理人員表格樣式 */
+        .manage-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.82rem; }
+        .manage-table th, .manage-table td { border-bottom: 1px solid #e8f5e9; padding: 6px 4px; text-align: left; }
+        .manage-table th { color: var(--primary-green); font-weight: bold; }
 
         /* 紀錄區 */
         .log-list { font-size: 0.8rem; color: #444; max-height: 140px; overflow-y: auto; background: #f9fbf9; padding: 10px; border-radius: 10px; border: 1px solid #e8f5e9; }
@@ -158,7 +166,7 @@
     <!-- 頂部 Header -->
     <div class="app-header">
         <div class="app-title">🥬🏸 蔬食羽球排場</div>
-        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white;" onclick="toggleInputSection()">⚙️ 批次加入</button>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:white;" onclick="toggleInputSection()">⚙️ 管理選單</button>
     </div>
 
     <!-- 活動地點與設定 -->
@@ -180,18 +188,41 @@
         </div>
     </div>
 
-    <!-- 複製貼上批次新增人員區塊 -->
+    <!-- 複製貼上批次新增人員與管理區塊 -->
     <div id="inputSection" class="section" style="display:none; background:#f1f8e9;">
         <div class="section-title">
-            <span>📋 複製貼上新增人員</span>
+            <span>📋 批次新增球員名單</span>
             <span style="font-size:0.75rem; color:#666; font-weight:normal;">自動過濾編號數字</span>
         </div>
-        <textarea id="batchNameInput" rows="4" placeholder="請直接貼上名單，例如：&#10;1. 姵彤&#10;2.小胖&#10;3.建霖" style="width:100%; margin-bottom:8px; resize:none;"></textarea>
-        <div style="display:flex; gap:8px; justify-content:space-between;">
+        <textarea id="batchNameInput" rows="3" placeholder="請貼上名單，例如：&#10;1. 姵彤&#10;2. 小胖&#10;3. 建霖" style="width:100%; margin-bottom:8px; resize:none;"></textarea>
+        <div style="display:flex; gap:8px; justify-content:space-between; margin-bottom:8px;">
             <button class="btn btn-primary" style="flex:1;" onclick="addBatchPlayers()">✨ 批次新增球員</button>
             <button class="btn btn-danger btn-sm" onclick="resetAllData()">⚠️ 清空今天紀錄</button>
         </div>
-        <div id="playerManageList" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;"></div>
+
+        <!-- 摺疊點擊按鈕：管理簽到與繳費 -->
+        <div style="margin-top:10px;">
+            <button class="btn btn-secondary btn-sm" style="width:100%; font-weight:bold; justify-content:space-between;" onclick="toggleManageTable()">
+                <span>👥 展開/收合 簽到與繳費明細</span>
+                <span id="manageTableArrow">▼</span>
+            </button>
+            
+            <!-- 預設隱藏的簽到與繳費表格 -->
+            <div id="manageTableWrapper" style="display:none; overflow-x:auto;">
+                <table class="manage-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 22%;">姓名</th>
+                            <th style="width: 18%;">簽到</th>
+                            <th style="width: 18%;">繳費</th>
+                            <th>備註</th>
+                            <th style="width: 10%;">刪</th>
+                        </tr>
+                    </thead>
+                    <tbody id="playerManageList"></tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- 第一與第二區塊：場地對戰與預備區 -->
@@ -200,10 +231,10 @@
         <div id="courtsContainer"></div>
     </div>
 
-    <!-- 第三區塊：等待休息區 (智慧高亮) -->
+    <!-- 第三區塊：等待休息區 (智慧高亮，僅顯示已簽到者) -->
     <div class="section">
         <div class="section-title">
-            <span>👥 等待休息區</span>
+            <span>👥 等待休息區 (已簽到)</span>
             <span style="font-size:0.75rem; font-weight:normal; background:#fff9c4; color:#f57f17; padding:2px 6px; border-radius:6px; border:1px solid #fbc02d;">🟨 上場次數較少</span>
         </div>
         <div id="waitingList" class="player-grid"></div>
@@ -277,7 +308,10 @@
                         name: cleanedName,
                         count: 0,
                         lastPlayedTime: Date.now(),
-                        status: 'idle'
+                        status: 'idle',
+                        checkedIn: false,  // 預設未簽到
+                        isPaid: false,     // 預設未繳費
+                        note: ''           // 備註欄位
                     });
                 }
             });
@@ -305,6 +339,19 @@
             sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
         }
 
+        // 折疊/展開 管理表格
+        function toggleManageTable() {
+            const wrapper = document.getElementById('manageTableWrapper');
+            const arrow = document.getElementById('manageTableArrow');
+            if (wrapper.style.display === 'none') {
+                wrapper.style.display = 'block';
+                arrow.innerText = '▲';
+            } else {
+                wrapper.style.display = 'none';
+                arrow.innerText = '▼';
+            }
+        }
+
         function removePlayer(id) {
             state.players = state.players.filter(p => p.id !== id);
             for (let c in state.courts) {
@@ -315,10 +362,35 @@
             render();
         }
 
-        function joinQueue(playerId, courtNum) {
-            if ((state.queues[courtNum] || []).length >= 4) {
-                return;
+        function toggleCheckIn(id) {
+            const p = state.players.find(x => x.id === id);
+            if (p) {
+                p.checkedIn = !p.checkedIn;
+                saveData();
+                render();
             }
+        }
+
+        function togglePay(id) {
+            const p = state.players.find(x => x.id === id);
+            if (p) {
+                p.isPaid = !p.isPaid;
+                saveData();
+                render();
+            }
+        }
+
+        function updateNote(id, noteValue) {
+            const p = state.players.find(x => x.id === id);
+            if (p) {
+                p.note = noteValue;
+                saveData();
+            }
+        }
+
+        function joinQueue(playerId, courtNum) {
+            if ((state.queues[courtNum] || []).length >= 4) return;
+            
             const player = state.players.find(p => p.id === playerId);
             if (player) {
                 player.status = 'queued';
@@ -360,23 +432,19 @@
             render();
         }
 
-        // 撤回上場按鈕 (比賽中 4 人與預備區的人全都退回休息區)
         function undoStartMatch(courtNum) {
             if (!state.courts[courtNum] || state.courts[courtNum].length === 0) return;
 
-            // 1. 將比賽中 4 人的狀態改回 'idle'
             state.courts[courtNum].forEach(pid => {
                 const p = state.players.find(x => x.id === pid);
                 if (p) p.status = 'idle';
             });
 
-            // 2. 將預備區所有人的狀態也都改回 'idle'
             (state.queues[courtNum] || []).forEach(pid => {
                 const p = state.players.find(x => x.id === pid);
                 if (p) p.status = 'idle';
             });
 
-            // 3. 清空比賽區與預備區
             state.courts[courtNum] = [];
             state.queues[courtNum] = [];
 
@@ -427,7 +495,7 @@
 
         function updateIdleTimes() {
             state.players.forEach(p => {
-                if (p.status === 'idle') {
+                if (p.status === 'idle' && p.checkedIn) {
                     const elem = document.getElementById(`idle-time-${p.id}`);
                     if (elem) elem.innerText = formatIdleTime(p.lastPlayedTime);
                 }
@@ -491,7 +559,8 @@
             const container = document.getElementById('waitingList');
             container.innerHTML = '';
 
-            const idlePlayers = state.players.filter(p => p.status === 'idle');
+            // 僅顯示 已簽到 且 閒置 中球員
+            const idlePlayers = state.players.filter(p => p.status === 'idle' && p.checkedIn);
 
             let minCount = Infinity;
             if (idlePlayers.length > 0) {
@@ -506,7 +575,6 @@
                 let courtBtns = '';
                 for (let c = 1; c <= state.courtCount; c++) {
                     const displayName = state.courtNames[c] || `${c}場`;
-                    
                     const isFull = (state.queues[c] || []).length >= 4;
                     const btnClass = isFull ? "btn btn-court btn-disabled" : "btn btn-court";
                     const disabledAttr = isFull ? "disabled" : "";
@@ -520,6 +588,10 @@
                             <span>${p.name}</span>
                             ${isMin ? '<span class="player-badge">優先</span>' : ''}
                         </div>
+                        <div style="margin-bottom:4px; display:flex; gap:4px; align-items:center;">
+                            <span class="pay-tag ${p.isPaid ? 'pay-paid' : 'pay-unpaid'}">${p.isPaid ? '已繳' : '未繳'}</span>
+                            ${p.note ? `<span style="font-size:0.65rem; color:#666;">(${p.note})</span>` : ''}
+                        </div>
                         <div class="player-info">次數：<b>${p.count}</b></div>
                         <div class="player-info"><b id="idle-time-${p.id}">${formatIdleTime(p.lastPlayedTime)}</b></div>
                     </div>
@@ -531,17 +603,32 @@
             });
 
             if (idlePlayers.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; color:#888; font-size:0.85rem; padding:15px;">尚無球員或全員皆在預備/比賽中 🏸<br><span style="font-size:0.75rem;">(請點選右上角「⚙️ 批次加入」貼上名單)</span></div>`;
+                container.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; color:#888; font-size:0.85rem; padding:15px;">尚無簽到球員，或全員皆在預備/比賽中 🏸<br><span style="font-size:0.75rem;">(請點選右上角「⚙️ 管理選單」進行簽到)</span></div>`;
             }
         }
 
         function renderPlayerManager() {
             const container = document.getElementById('playerManageList');
             container.innerHTML = state.players.map(p => `
-                <span style="background:#fff; border:1px solid #c8e6c9; padding:4px 10px; border-radius:16px; font-size:0.85rem; display:inline-flex; align-items:center; gap:4px; font-weight:bold;">
-                    ${p.name}
-                    <b onclick="removePlayer('${p.id}')" style="color:#e53935; cursor:pointer; margin-left:4px;">&times;</b>
-                </span>
+                <tr>
+                    <td style="font-weight:bold;">${p.name}</td>
+                    <td>
+                        <button class="btn btn-sm ${p.checkedIn ? 'btn-primary' : 'btn-secondary'}" onclick="toggleCheckIn('${p.id}')">
+                            ${p.checkedIn ? '已到' : '未到'}
+                        </button>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm ${p.isPaid ? 'btn-primary' : 'btn-warning'}" onclick="togglePay('${p.id}')">
+                            ${p.isPaid ? '已繳' : '未繳'}
+                        </button>
+                    </td>
+                    <td>
+                        <input type="text" value="${p.note || ''}" placeholder="備註" style="width:100%; font-size:0.75rem; padding:3px 5px;" onchange="updateNote('${p.id}', this.value)">
+                    </td>
+                    <td>
+                        <b onclick="removePlayer('${p.id}')" style="color:#e53935; cursor:pointer; font-size:1.1rem;">&times;</b>
+                    </td>
+                </tr>
             `).join('');
         }
 
