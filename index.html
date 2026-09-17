@@ -152,7 +152,7 @@
 
         /* 管理人員表格樣式 */
         .manage-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.82rem; }
-        .manage-table th, .manage-table td { border-bottom: 1px solid #e8f5e9; padding: 6px 4px; text-align: left; }
+        .manage-table th, .manage-table td { border-bottom: 1px solid #e8f5e9; padding: 6px 3px; text-align: left; }
         .manage-table th { color: var(--primary-green); font-weight: bold; }
 
         /* 金額統計卡片 */
@@ -225,15 +225,15 @@
                 <!-- 金額計算區塊 -->
                 <div class="summary-box">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight:bold; color:var(--primary-green);">💰 每人費用設定：</span>
+                        <span style="font-weight:bold; color:var(--primary-green);">💰 每人標準費用：</span>
                         <div style="display:flex; align-items:center; gap:4px;">
-                            <input type="number" id="feePerPerson" value="200" style="width:70px; text-align:right; font-weight:bold;" onchange="saveData(); render();">
+                            <input type="number" id="feePerPerson" value="300" style="width:70px; text-align:right; font-weight:bold;" onchange="saveData(); render();">
                             <span style="font-size:0.8rem;">元</span>
                         </div>
                     </div>
                     <hr style="border:none; border-top:1px dashed #c8e6c9; margin:2px 0;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
-                        <span>💵 實收總金額：<b id="totalPaidAmount" style="color:#2e7d32; font-size:1.1rem;">0</b> 元</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.88rem;">
+                        <span>💵 實收總額：<b id="totalPaidAmount" style="color:#2e7d32; font-size:1.1rem;">0</b> 元</span>
                         <span style="font-size:0.75rem; color:#666;">(已繳 <b id="paidCount">0</b> 人 / 未繳 <b id="unpaidCount">0</b> 人)</span>
                     </div>
                 </div>
@@ -241,11 +241,12 @@
                 <table class="manage-table">
                     <thead>
                         <tr>
-                            <th style="width: 22%;">姓名</th>
-                            <th style="width: 18%;">簽到</th>
-                            <th style="width: 18%;">繳費</th>
+                            <th style="width: 20%;">姓名</th>
+                            <th style="width: 15%;">簽到</th>
+                            <th style="width: 15%;">繳費</th>
+                            <th style="width: 20%;">扣繳折抵</th>
                             <th>備註</th>
-                            <th style="width: 10%;">刪</th>
+                            <th style="width: 8%;">刪</th>
                         </tr>
                     </thead>
                     <tbody id="playerManageList"></tbody>
@@ -280,7 +281,7 @@
             location: "",
             courtCount: 1,
             courtNames: { 1: "場地 1", 2: "場地 2", 3: "場地 3", 4: "場地 4" },
-            feePerPerson: 200,
+            feePerPerson: 300,
             players: [], 
             courts: { 1: [] },
             queues: { 1: [] },
@@ -306,7 +307,7 @@
                     state = JSON.parse(saved);
                     document.getElementById('locationInput').value = state.location || "";
                     document.getElementById('courtCountSelect').value = state.courtCount || 1;
-                    document.getElementById('feePerPerson').value = state.feePerPerson || 200;
+                    document.getElementById('feePerPerson').value = state.feePerPerson !== undefined ? state.feePerPerson : 300;
                 } catch(e) { console.error(e); }
             }
         }
@@ -343,6 +344,7 @@
                         status: 'idle',
                         checkedIn: false,
                         isPaid: false,
+                        discount: 0, // 扣繳金額預設為 0
                         note: ''
                     });
                 }
@@ -408,6 +410,16 @@
                 p.isPaid = !p.isPaid;
                 saveData();
                 render();
+            }
+        }
+
+        function updateDiscount(id, val) {
+            const p = state.players.find(x => x.id === id);
+            if (p) {
+                p.discount = Math.max(0, parseInt(val) || 0);
+                saveData();
+                calculateSummary();
+                renderWaitingList();
             }
         }
 
@@ -542,14 +554,24 @@
         }
 
         function calculateSummary() {
-            const fee = parseInt(document.getElementById('feePerPerson').value) || 0;
-            const paidCount = state.players.filter(p => p.isPaid).length;
-            const unpaidCount = state.players.length - paidCount;
-            const totalAmount = paidCount * fee;
+            const standardFee = parseInt(document.getElementById('feePerPerson').value) || 0;
+            let totalPaid = 0;
+            let paidCount = 0;
+            let unpaidCount = 0;
+
+            state.players.forEach(p => {
+                const actualFee = Math.max(0, standardFee - (p.discount || 0));
+                if (p.isPaid) {
+                    paidCount++;
+                    totalPaid += actualFee;
+                } else {
+                    unpaidCount++;
+                }
+            });
 
             document.getElementById('paidCount').innerText = paidCount;
             document.getElementById('unpaidCount').innerText = unpaidCount;
-            document.getElementById('totalPaidAmount').innerText = totalAmount.toLocaleString();
+            document.getElementById('totalPaidAmount').innerText = totalPaid.toLocaleString();
         }
 
         function renderCourts() {
@@ -602,6 +624,7 @@
             const container = document.getElementById('waitingList');
             container.innerHTML = '';
 
+            const standardFee = parseInt(document.getElementById('feePerPerson').value) || 0;
             const idlePlayers = state.players.filter(p => p.status === 'idle' && p.checkedIn);
 
             let minCount = Infinity;
@@ -624,14 +647,16 @@
                     courtBtns += `<button class="${btnClass}" ${disabledAttr} onclick="joinQueue('${p.id}', ${c})">${displayName}</button>`;
                 }
 
+                const actualFee = Math.max(0, standardFee - (p.discount || 0));
+
                 card.innerHTML = `
                     <div>
                         <div class="player-name">
                             <span>${p.name}</span>
                             ${isMin ? '<span class="player-badge">優先</span>' : ''}
                         </div>
-                        <div style="margin-bottom:4px; display:flex; gap:4px; align-items:center;">
-                            <span class="pay-tag ${p.isPaid ? 'pay-paid' : 'pay-unpaid'}">${p.isPaid ? '已繳' : '未繳'}</span>
+                        <div style="margin-bottom:4px; display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                            <span class="pay-tag ${p.isPaid ? 'pay-paid' : 'pay-unpaid'}">${p.isPaid ? '已繳' : '未繳'} ($${actualFee})</span>
                             ${p.note ? `<span style="font-size:0.65rem; color:#666;">(${p.note})</span>` : ''}
                         </div>
                         <div class="player-info">次數：<b>${p.count}</b></div>
@@ -665,7 +690,10 @@
                         </button>
                     </td>
                     <td>
-                        <input type="text" value="${p.note || ''}" placeholder="備註" style="width:100%; font-size:0.75rem; padding:3px 5px;" onchange="updateNote('${p.id}', this.value)">
+                        <input type="number" value="${p.discount || ''}" placeholder="-0" style="width:100%; font-size:0.75rem; padding:3px 4px; text-align:center;" onchange="updateDiscount('${p.id}', this.value)">
+                    </td>
+                    <td>
+                        <input type="text" value="${p.note || ''}" placeholder="備註" style="width:100%; font-size:0.75rem; padding:3px 4px;" onchange="updateNote('${p.id}', this.value)">
                     </td>
                     <td>
                         <b onclick="removePlayer('${p.id}')" style="color:#e53935; cursor:pointer; font-size:1.1rem;">&times;</b>
