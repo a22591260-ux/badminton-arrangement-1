@@ -195,9 +195,9 @@
         <div id="inputSection" class="section" style="display:none; background:#f1f8e9;">
             <div class="section-title">
                 <span>📋 批次匯入當天名單</span>
-                <span style="font-size:0.72rem; color:#666; font-weight:normal;">預設為「無（未到）」</span>
+                <span style="font-size:0.72rem; color:#666; font-weight:normal;">自動淨化姓名(忽略性別/級數)</span>
             </div>
-            <textarea id="batchNameInput" rows="2" placeholder="貼上名單，例如：&#10;.姵彤&#10;1. 小胖" style="width:100%; margin-bottom:6px; resize:none;"></textarea>
+            <textarea id="batchNameInput" rows="2" placeholder="貼上名單，例如：&#10;9.閔惇 男6級&#10;.姵彤 女5級" style="width:100%; margin-bottom:6px; resize:none;"></textarea>
             <div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:6px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="addBatchPlayers()">✨ 匯入名單</button>
                 <button class="btn btn-danger btn-sm" onclick="resetTodayData()">⚠️ 清空今日排場(獨立不影響歷史)</button>
@@ -392,7 +392,12 @@
                     <span>💵 該日實收總金額：</span><b id="statTotalPaid" style="color:#2e7d32; font-size:1rem;">0 元</b>
                 </div>
             </div>
-            <button class="btn btn-primary btn-sm" style="width:100%; margin-top:8px;" onclick="exportHistoryCSV()">📥 匯出選取日期 CSV 檔</button>
+
+            <div style="display:flex; gap:6px; margin-top:8px;">
+                <button class="btn btn-primary btn-sm" style="flex:1;" onclick="exportHistoryCSV()">📤 匯出選取日期 CSV 檔</button>
+                <button class="btn btn-secondary btn-sm" style="flex:1; border:1px solid #a5d6a7; background:#e8f5e9; color:#1b5e20;" onclick="document.getElementById('historyCsvFileInput').click()">📥 匯入歷史紀錄 CSV</button>
+                <input type="file" id="historyCsvFileInput" accept=".csv" style="display:none;" onchange="importHistoryCSV(event)">
+            </div>
         </div>
 
         <div class="section">
@@ -485,6 +490,17 @@
             }
         }
 
+        /* 純姓名清洗工具：徹底過濾開頭數字/標點、結尾的性別與級數 */
+        function extractOnlyName(raw) {
+            if (!raw) return '';
+            let s = raw.trim();
+            // 去除開頭開頭的數字、點、槓等
+            s = s.replace(/^[\.\s、\-_0-9]+/, '').trim();
+            // 去除常見性別與級數後綴 (例如: 男6級, 女5級, 男, 女, 6級)
+            s = s.replace(/[\s\t,、]*(?:[男女]|[\d]+級)+.*$/, '').trim();
+            return s;
+        }
+
         function cleanName(raw) {
             if (!raw) return '';
             return raw.replace(/^[\.\s、\-_0-9]+/, '').trim();
@@ -505,7 +521,7 @@
 
         function addDbPlayer() {
             const rawName = document.getElementById('dbNameInput').value;
-            const name = cleanName(rawName);
+            const name = extractOnlyName(rawName);
             const gender = document.getElementById('dbGenderInput').value;
             const level = document.getElementById('dbLevelInput').value;
 
@@ -548,7 +564,6 @@
             render();
         }
 
-        /* 清空球員資料庫（需輸入密碼 1234） */
         function clearDb() {
             const pwd = prompt("⚠️ 請輸入清除密碼以確認清空資料庫：");
             if (pwd === null) return;
@@ -563,7 +578,6 @@
             }
         }
 
-        /* 新增：匯出球員資料庫 CSV 檔案 */
         function exportDbCSV() {
             if (!state.dbPlayers || state.dbPlayers.length === 0) {
                 alert("目前資料庫內無球員資料可供匯出！");
@@ -617,7 +631,7 @@
 
             for (let i = startRow; i < lines.length; i++) {
                 const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
-                const name = cleanName(cols[nameIdx]);
+                const name = extractOnlyName(cols[nameIdx]);
                 if (!name) continue;
 
                 let gender = cols[genderIdx] || '?';
@@ -657,7 +671,7 @@
             lines.forEach(line => {
                 const parts = line.split(/[\t,\s]+/).map(p => p.trim()).filter(p => p.length > 0);
                 if (parts.length > 0) {
-                    const name = cleanName(parts[0]);
+                    const name = extractOnlyName(parts[0]);
                     if (!name) return;
 
                     let gender = '?';
@@ -702,11 +716,12 @@
             }
         }
 
+        /* 關鍵修正：當天批次匯入時，精確截取姓名，自動忽略性別與級數 */
         function parseAndAddNames(rawText) {
             const lines = rawText.split(/[\n,\r、]+/).map(n => n.trim()).filter(n => n.length > 0);
             
             lines.forEach(line => {
-                let cleanedName = cleanName(line);
+                let cleanedName = extractOnlyName(line);
                 if (cleanedName.length > 0) {
                     const dbMatch = state.dbPlayers.find(p => p.name.toLowerCase() === cleanedName.toLowerCase());
                     const gender = dbMatch ? dbMatch.gender : '?';
@@ -1209,7 +1224,6 @@
             }
         }
 
-        /* 清空歷史紀錄（需輸入密碼 1234） */
         function clearHistoryLogs() {
             const pwd = prompt("⚠️ 請輸入清除密碼以確認清空歷史對戰紀錄與結算數據：");
             if (pwd === null) return;
@@ -1249,6 +1263,41 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        /* 新增：匯入歷史紀錄 CSV 檔案 */
+        function importHistoryCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const csvText = e.target.result;
+                const lines = csvText.split(/\r\n|\n/).map(l => l.trim()).filter(l => l.length > 0);
+                if (lines.length <= 1) {
+                    alert("匯入的檔案內容為空或無有效紀錄！");
+                    return;
+                }
+
+                let importedCount = 0;
+                for (let i = 1; i < lines.length; i++) {
+                    const cols = lines[i].split(',').map(c => c.replace(/"/g, '').trim());
+                    if (cols.length >= 4) {
+                        const [date, time, courtName, players] = cols;
+                        if (date && players) {
+                            state.logs.push({ date, time, courtName, players });
+                            importedCount++;
+                        }
+                    }
+                }
+
+                saveData();
+                updateHistoryDateSelect();
+                renderHistory();
+                alert(`成功匯入 ${importedCount} 筆歷史紀錄！`);
+                event.target.value = '';
+            };
+            reader.readAsText(file, 'UTF-8');
         }
     </script>
 </body>
