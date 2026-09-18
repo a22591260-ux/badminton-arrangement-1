@@ -341,10 +341,13 @@
 
         <div class="section">
             <div class="section-title">
-                <span>🗃️ 球員資料庫名單 (可直接手動修改)</span>
-                <div style="text-align:right;">
-                    <button class="btn btn-danger btn-sm" onclick="clearDb()">🔒 清空資料庫</button>
-                    <div class="btn-note">(清除密碼：1234)</div>
+                <span>🗃️ 球員資料庫名單</span>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button class="btn btn-primary btn-sm" onclick="exportDbCSV()">📤 匯出資料庫 CSV 檔</button>
+                    <div style="text-align:right;">
+                        <button class="btn btn-danger btn-sm" onclick="clearDb()">🔒 清空資料庫</button>
+                        <div class="btn-note">(清除密碼：1234)</div>
+                    </div>
                 </div>
             </div>
             <div style="overflow-x:auto;">
@@ -558,6 +561,30 @@
             } else {
                 alert("❌ 密碼錯誤，無法清空資料庫！");
             }
+        }
+
+        /* 新增：匯出球員資料庫 CSV 檔案 */
+        function exportDbCSV() {
+            if (!state.dbPlayers || state.dbPlayers.length === 0) {
+                alert("目前資料庫內無球員資料可供匯出！");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "姓名,性別,羽球級數\n";
+
+            state.dbPlayers.forEach(p => {
+                csvContent += `"${p.name}","${p.gender}","${p.level}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            const todayStr = new Date().toISOString().slice(0, 10);
+            link.setAttribute("download", `badminton_players_db_${todayStr}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         function importCSVFile() {
