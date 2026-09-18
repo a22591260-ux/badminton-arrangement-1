@@ -173,7 +173,7 @@
             <div style="display: flex; flex-direction:column; gap:6px;">
                 <div style="display: flex; gap:6px; align-items:center;">
                     <label style="white-space:nowrap; font-size:0.8rem; font-weight:bold; color:var(--primary-green);">📅 日期：</label>
-                    <input type="date" id="currentDateInput" style="flex:1; font-weight:bold;" onchange="saveData(); renderHistory();">
+                    <input type="date" id="currentDateInput" style="flex:1; font-weight:bold;" onchange="saveData(); syncDailySummarySnapshot(); renderHistory();">
                 </div>
                 <div style="display: flex; gap:6px; align-items:center;">
                     <label style="white-space:nowrap; font-size:0.8rem; font-weight:bold; color:var(--primary-green);">📍 地點：</label>
@@ -198,7 +198,7 @@
             <textarea id="batchNameInput" rows="2" placeholder="貼上名單，例如：&#10;.姵彤&#10;1. 小胖" style="width:100%; margin-bottom:6px; resize:none;"></textarea>
             <div style="display:flex; gap:6px; justify-content:space-between; margin-bottom:6px;">
                 <button class="btn btn-primary" style="flex:1;" onclick="addBatchPlayers()">✨ 匯入名單</button>
-                <button class="btn btn-danger btn-sm" onclick="resetTodayData()">⚠️ 清空今日排場(不影響歷史)</button>
+                <button class="btn btn-danger btn-sm" onclick="resetTodayData()">⚠️ 清空今日排場(獨立不影響歷史)</button>
             </div>
 
             <!-- 明細 -->
@@ -358,7 +358,7 @@
         </div>
     </div>
 
-    <!-- ==================== 頁面三：歷史紀錄與統計 (按日期結算) ==================== -->
+    <!-- ==================== 頁面三：歷史紀錄與統計 ==================== -->
     <div id="pageHistory" style="display:none;">
         <div class="section">
             <div class="section-title">
@@ -401,13 +401,17 @@
             players: [],
             courts: { 1: [], 2: [], 3: [], 4: [] },
             preQueues: { 1: [], 2: [], 3: [] },
-            logs: [] // 按日期存放: { date: '2026-09-18', time: '14:30', courtName: '場地 1', players: '姵彤、小胖' }
+            logs: [],
+            dailySummaries: {} 
         };
 
         window.onload = function() {
             loadData();
             if (!state.currentDate) {
                 state.currentDate = new Date().toISOString().slice(0, 10);
+            }
+            if (!state.dailySummaries) {
+                state.dailySummaries = {};
             }
             document.getElementById('currentDateInput').value = state.currentDate;
             setInterval(updateIdleTimes, 1000);
@@ -418,7 +422,30 @@
             state.currentDate = document.getElementById('currentDateInput').value;
             state.location = document.getElementById('locationInput').value;
             state.feePerPerson = parseInt(document.getElementById('feePerPerson').value) || 0;
+            syncDailySummarySnapshot();
             localStorage.setItem('veggie_badminton_v3_state', JSON.stringify(state));
+        }
+
+        /* 將簽到人數與實收金額以最大值快照寫入當天日期，防止清空時連動消失 */
+        function syncDailySummarySnapshot() {
+            const curDate = document.getElementById('currentDateInput').value || state.currentDate;
+            if (!curDate) return;
+
+            let checkedInCount = 0;
+            let totalPaid = 0;
+
+            state.players.forEach(p => {
+                if (p.checkedIn) checkedInCount++;
+                if (p.isPaid) totalPaid += Math.max(0, state.feePerPerson - (p.discount || 0));
+            });
+
+            if (!state.dailySummaries) state.dailySummaries = {};
+            
+            const prevSummary = state.dailySummaries[curDate] || { checkedInCount: 0, totalPaid: 0 };
+            state.dailySummaries[curDate] = {
+                checkedInCount: Math.max(prevSummary.checkedInCount, checkedInCount),
+                totalPaid: Math.max(prevSummary.totalPaid, totalPaid)
+            };
         }
 
         function loadData() {
@@ -448,13 +475,11 @@
             }
         }
 
-        /* 姓名自動清洗 */
         function cleanName(raw) {
             if (!raw) return '';
             return raw.replace(/^[\.\s、\-_0-9]+/, '').trim();
         }
 
-        /* 解析級數工具 */
         function parseLevelText(text) {
             if (!text) return '?';
             const numMatch = text.match(/\d+/);
@@ -468,7 +493,6 @@
             return '?';
         }
 
-        /* 資料庫操作 */
         function addDbPlayer() {
             const rawName = document.getElementById('dbNameInput').value;
             const name = cleanName(rawName);
@@ -627,7 +651,6 @@
             alert(`成功匯入/更新 ${addedCount} 筆資料庫名單！`);
         }
 
-        /* 簽到與排場管理 */
         function addBatchPlayers() {
             const text = document.getElementById('batchNameInput').value;
             if (text.trim()) {
@@ -668,13 +691,14 @@
             });
         }
 
-        /* 關鍵：清空今日排場（與歷史紀錄獨立，不刪除歷史） */
+        /* 關鍵：重置今日排場前強制完封快照，確保清空後歷史紀錄數字完好無損 */
         function resetTodayData() {
-            if (confirm("確定要清空主排場頁今天的排場與簽到資料嗎？\n(歷史紀錄區不會受到任何影響)")) {
+            if (confirm("確定要清空主排場頁今天的排場與簽到資料嗎？\n(歷史紀錄區與統計數據完全不受影響)")) {
+                syncDailySummarySnapshot();
                 state.players = [];
                 for (let c in state.courts) state.courts[c] = [];
                 for (let q in state.preQueues) state.preQueues[q] = [];
-                saveData();
+                localStorage.setItem('veggie_badminton_v3_state', JSON.stringify(state));
                 render();
             }
         }
@@ -786,7 +810,10 @@
             state.courts[courtNum] = [...state.preQueues[qIndex]];
             state.preQueues[qIndex].forEach(id => {
                 const p = state.players.find(x => x.id === id);
-                if (p) p.status = 'playing';
+                if (p) {
+                    p.status = 'playing';
+                    p.checkedIn = true;
+                }
             });
             state.preQueues[qIndex] = [];
             saveData();
@@ -804,7 +831,6 @@
             }
         }
 
-        /* 結算並記錄至目前設定的日期底下 */
         function finishCourtMatch(courtNum) {
             const courtPlayers = state.courts[courtNum] || [];
             if (courtPlayers.length === 0) return;
@@ -826,6 +852,7 @@
             playerObjects.forEach(p => {
                 p.count += 1;
                 p.status = 'idle';
+                p.checkedIn = true;
                 p.lastPlayedTime = now;
             });
 
@@ -1091,18 +1118,21 @@
             });
 
             document.getElementById('livePaidTotalDisplay').innerText = `${currentPaidTotal} 元`;
+            
+            syncDailySummarySnapshot();
         }
 
-        /* 歷史紀錄按日期動態選單與渲染 */
         function updateHistoryDateSelect() {
             const select = document.getElementById('historyDateSelect');
-            const dates = Array.from(new Set(state.logs.map(l => l.date))).sort().reverse();
+            const datesSet = new Set(state.logs.map(l => l.date));
+            if (state.dailySummaries) {
+                Object.keys(state.dailySummaries).forEach(d => datesSet.add(d));
+            }
             
             const curDate = document.getElementById('currentDateInput').value || state.currentDate;
-            if (!dates.includes(curDate)) {
-                dates.unshift(curDate);
-            }
+            datesSet.add(curDate);
 
+            const dates = Array.from(datesSet).sort().reverse();
             select.innerHTML = dates.map(d => `<option value="${d}">${d}</option>`).join('');
             select.value = curDate;
         }
@@ -1114,20 +1144,17 @@
             const selectedDate = select.value || document.getElementById('currentDateInput').value;
             const filteredLogs = state.logs.filter(l => l.date === selectedDate);
 
-            // 當選取日期等於目前主排場日，連動當日簽到與金額，否則以歷史對戰紀錄呈現
-            const isToday = selectedDate === document.getElementById('currentDateInput').value;
-            const checkedInCount = isToday ? state.players.filter(p => p.checkedIn).length : '- ';
-            
-            let totalRevenue = 0;
-            if (isToday) {
-                state.players.forEach(p => {
-                    if (p.isPaid) totalRevenue += Math.max(0, state.feePerPerson - (p.discount || 0));
-                });
+            let totalCheckedIn = 0;
+            let totalPaidAmount = 0;
+
+            if (state.dailySummaries && state.dailySummaries[selectedDate]) {
+                totalCheckedIn = state.dailySummaries[selectedDate].checkedInCount || 0;
+                totalPaidAmount = state.dailySummaries[selectedDate].totalPaid || 0;
             }
 
             document.getElementById('statTotalMatches').innerText = `${filteredLogs.length} 場`;
-            document.getElementById('statTotalCheckedIn').innerText = `${checkedInCount} 人`;
-            document.getElementById('statTotalPaid').innerText = isToday ? `${totalRevenue} 元` : `(當日已結算)`;
+            document.getElementById('statTotalCheckedIn').innerText = `${totalCheckedIn} 人`;
+            document.getElementById('statTotalPaid').innerText = `${totalPaidAmount} 元`;
 
             const logContainer = document.getElementById('logList');
             if (filteredLogs.length === 0) {
@@ -1143,8 +1170,9 @@
         }
 
         function clearHistoryLogs() {
-            if (confirm("確定要清空所有的歷史對戰紀錄嗎？")) {
+            if (confirm("確定要清空所有的歷史對戰紀錄與結算數據嗎？")) {
                 state.logs = [];
+                state.dailySummaries = {};
                 saveData();
                 updateHistoryDateSelect();
                 renderHistory();
