@@ -91,8 +91,9 @@
 
         .btn-court { 
             background: #e8f5e9; color: #1b5e20; border: 1px solid #a5d6a7; 
-            padding: 4px; font-size: 0.72rem; font-weight: bold; width: 100%; text-align: center; border-radius: 4px; cursor: pointer;
+            padding: 5px; font-size: 0.75rem; font-weight: bold; width: 100%; text-align: center; border-radius: 4px; cursor: pointer;
         }
+        .btn-court:hover { background: #c8e6c9; }
 
         /* Gender Colors */
         .name-male { color: var(--male-color) !important; font-weight: 800; }
@@ -252,7 +253,7 @@
         <div class="section">
             <div class="section-title">
                 <span>📋 彈性預排隊伍</span>
-                <span style="font-size:0.72rem; color:#666; font-weight:normal;">預排後姓名自動從等待區隱藏</span>
+                <span style="font-size:0.72rem; color:#666; font-weight:normal;">點擊「上場」按鈕即自動語音廣播</span>
             </div>
             <div id="preQueuesContainer"></div>
         </div>
@@ -421,6 +422,9 @@
             dailySummaries: {} 
         };
 
+        let availableVoices = [];
+        let audioCtx = null;
+
         window.onload = function() {
             loadData();
             if (!state.currentDate) {
@@ -431,8 +435,165 @@
             }
             document.getElementById('currentDateInput').value = state.currentDate;
             setInterval(updateIdleTimes, 1000);
+            
+            initSpeechVoices();
+
             render();
         };
+
+        function initSpeechVoices() {
+            if ('speechSynthesis' in window) {
+                const loadVoices = () => {
+                    availableVoices = window.speechSynthesis.getVoices();
+                };
+                loadVoices();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = loadVoices;
+                }
+            }
+        }
+
+        /* 台灣口語風格英文拼音轉換：符合台灣人平時唸英文名字的口語習慣 */
+        function convertEnglishToPhonics(text) {
+            if (!text) return '';
+            
+            const taiwanNamesMap = {
+                'nana': '娜娜', 'na': '娜', 'alex': '亞歷', 'ben': '班', 'chris': '克里斯', 'david': '大衛',
+                'eric': '艾瑞克', 'frank': '法蘭克', 'george': '喬治', 'henry': '亨利',
+                'jack': '傑克', 'jerry': '傑瑞', 'jim': '吉姆', 'john': '約翰',
+                'kevin': '凱文', 'leo': '里歐', 'mark': '馬克', 'mike': '麥克',
+                'paul': '保羅', 'peter': '彼得', 'sam': '山姆', 'tom': '湯姆',
+                'tony': '湯尼', 'victor': '維克多', 'amy': '艾米', 'angela': '安琪拉',
+                'anna': '安娜', 'betty': '貝蒂', 'cindy': '辛蒂', 'emily': '艾米莉',
+                'fiona': '菲奧娜', 'grace': '葛瑞絲', 'helen': '海倫', 'iris': '艾莉絲',
+                'ivy': '艾薇', 'jessica': '潔西卡', 'lisa': '麗莎', 'mary': '瑪莉',
+                'nancy': '南西', 'rachel': '瑞秋', 'sarah': '莎拉', 'tina': '蒂娜',
+                'jason': '傑森', 'ken': '肯尼', 'andy': '安迪', 'ray': '阿雷', 'roy': '羅伊'
+            };
+
+            return text.replace(/\b[a-zA-Z]+\b/g, (match) => {
+                const lower = match.toLowerCase();
+                if (taiwanNamesMap[lower]) {
+                    return taiwanNamesMap[lower];
+                }
+                
+                let phonics = lower
+                    .replace(/tion/g, '訊')
+                    .replace(/na/g, '娜')
+                    .replace(/ne/g, '妮')
+                    .replace(/ni/g, '尼')
+                    .replace(/no/g, '諾')
+                    .replace(/nu/g, '努')
+                    .replace(/sh/g, '許')
+                    .replace(/ch/g, '奇')
+                    .replace(/th/g, '斯')
+                    .replace(/ck/g, '克')
+                    .replace(/ph/g, '夫')
+                    .replace(/ee/g, '伊')
+                    .replace(/oo/g, '烏')
+                    .replace(/ay/g, '埃')
+                    .replace(/ea/g, '伊')
+                    .replace(/al/g, '奧')
+                    .replace(/ar/g, '阿')
+                    .replace(/er/g, '爾')
+                    .replace(/or/g, '爾')
+                    .replace(/a/g, '亞')
+                    .replace(/b/g, '布')
+                    .replace(/c/g, '克')
+                    .replace(/d/g, '德')
+                    .replace(/e/g, '艾')
+                    .replace(/f/g, '夫')
+                    .replace(/g/g, '格')
+                    .replace(/h/g, '哈')
+                    .replace(/i/g, '伊')
+                    .replace(/j/g, '傑')
+                    .replace(/k/g, '克')
+                    .replace(/l/g, '勒')
+                    .replace(/m/g, '姆')
+                    .replace(/n/g, '納')
+                    .replace(/o/g, '歐')
+                    .replace(/p/g, '普')
+                    .replace(/q/g, '庫')
+                    .replace(/r/g, '爾')
+                    .replace(/s/g, '斯')
+                    .replace(/t/g, '特')
+                    .replace(/u/g, '優')
+                    .replace(/v/g, '威')
+                    .replace(/w/g, '沃')
+                    .replace(/x/g, '克斯')
+                    .replace(/y/g, '雅')
+                    .replace(/z/g, '茲');
+                return phonics;
+            });
+        }
+
+        /* 播放真實「叮咚」音效 (Web Audio API 雙音階正弦波) */
+        function playDingDongSound(callback) {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const now = audioCtx.currentTime;
+
+                // 第一聲「叮」(高音 E6 ~ 1318Hz)
+                const osc1 = audioCtx.createOscillator();
+                const gain1 = audioCtx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(1318.51, now);
+                gain1.gain.setValueAtTime(0.3, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                osc1.connect(gain1);
+                gain1.connect(audioCtx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.5);
+
+                // 第二聲「咚」(次高音 C6 ~ 1046Hz，延遲 0.22 秒)
+                const osc2 = audioCtx.createOscillator();
+                const gain2 = audioCtx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(1046.50, now + 0.22);
+                gain2.gain.setValueAtTime(0.35, now + 0.22);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+                osc2.connect(gain2);
+                gain2.connect(audioCtx.destination);
+                osc2.start(now + 0.22);
+                osc2.stop(now + 0.9);
+
+                if (callback) {
+                    setTimeout(callback, 650);
+                }
+            } catch(e) {
+                console.error("音效播放失敗，直接切換語音", e);
+                if (callback) callback();
+            }
+        }
+
+        /* 優先抓取「雅婷 (Yating)」或台灣本地自然聲調音色 */
+        function getYatingOrBestVoice() {
+            if (!availableVoices || availableVoices.length === 0) {
+                if ('speechSynthesis' in window) availableVoices = window.speechSynthesis.getVoices();
+            }
+
+            const yatingVoice = availableVoices.find(v => 
+                v.name.includes('Yating') || v.name.includes('雅婷') || v.name.includes('Mei-Jia') || v.name.includes('美佳')
+            );
+            if (yatingVoice) return yatingVoice;
+
+            const preferredVoices = availableVoices.filter(v => 
+                (v.lang === 'zh-TW' || v.lang === 'zh_TW') &&
+                (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Hanhan') || v.name.includes('HsiaoChen') || v.name.includes('Premium'))
+            );
+            if (preferredVoices.length > 0) return preferredVoices[0];
+
+            const twVoice = availableVoices.find(v => v.lang === 'zh-TW' || v.lang === 'zh_TW');
+            if (twVoice) return twVoice;
+
+            return null;
+        }
 
         function saveData() {
             state.currentDate = document.getElementById('currentDateInput').value;
@@ -490,13 +651,10 @@
             }
         }
 
-        /* 純姓名清洗工具：徹底過濾開頭數字/標點、結尾的性別與級數 */
         function extractOnlyName(raw) {
             if (!raw) return '';
             let s = raw.trim();
-            // 去除開頭開頭的數字、點、槓等
             s = s.replace(/^[\.\s、\-_0-9]+/, '').trim();
-            // 去除常見性別與級數後綴 (例如: 男6級, 女5級, 男, 女, 6級)
             s = s.replace(/[\s\t,、]*(?:[男女]|[\d]+級)+.*$/, '').trim();
             return s;
         }
@@ -716,7 +874,6 @@
             }
         }
 
-        /* 關鍵修正：當天批次匯入時，精確截取姓名，自動忽略性別與級數 */
         function parseAndAddNames(rawText) {
             const lines = rawText.split(/[\n,\r、]+/).map(n => n.trim()).filter(n => n.length > 0);
             
@@ -852,6 +1009,45 @@
             }
         }
 
+        /* 獨立廣播邏輯 */
+        function announcePreQueue(qIndex) {
+            const queuePlayers = (state.preQueues[qIndex] || []).map(id => state.players.find(p => p.id === id)).filter(Boolean);
+            if (queuePlayers.length === 0) {
+                alert("該預排隊伍目前沒有球員！");
+                return;
+            }
+
+            const namesText = queuePlayers.map(p => convertEnglishToPhonics(p.name)).join('、');
+            const speechText = `現在請 ${namesText}，準備上場打球。`;
+
+            if (!('speechSynthesis' in window)) {
+                alert("您的瀏覽器不支援語音廣播功能。");
+                return;
+            }
+
+            window.speechSynthesis.cancel();
+
+            playDingDongSound(() => {
+                const selectedVoice = getYatingOrBestVoice();
+
+                const createUtterance = (pitchVal) => {
+                    const u = new SpeechSynthesisUtterance(speechText);
+                    u.lang = 'zh-TW';
+                    u.rate = 0.95;
+                    u.pitch = pitchVal;
+                    if (selectedVoice) u.voice = selectedVoice;
+                    return u;
+                };
+
+                const u1 = createUtterance(1.05);
+                const u2 = createUtterance(1.1);
+
+                window.speechSynthesis.speak(u1);
+                window.speechSynthesis.speak(u2);
+            });
+        }
+
+        /* 按下「上場」按鈕：同時做對戰排場 + 自動播報廣播 */
         function sendPreQueueToCourt(qIndex, courtNum) {
             if ((state.preQueues[qIndex] || []).length < 4) {
                 alert("預排隊伍需滿 4 人才能上場！");
@@ -862,6 +1058,10 @@
                 return;
             }
 
+            // 1. 先抓取預排球員資料進行語音廣播
+            announcePreQueue(qIndex);
+
+            // 2. 將球員移入目標場地，並更新狀態
             state.courts[courtNum] = [...state.preQueues[qIndex]];
             state.preQueues[qIndex].forEach(id => {
                 const p = state.players.find(x => x.id === id);
@@ -870,6 +1070,8 @@
                     p.checkedIn = true;
                 }
             });
+
+            // 3. 清空該預排隊伍
             state.preQueues[qIndex] = [];
             saveData();
             render();
@@ -1003,7 +1205,10 @@
                     <div class="pre-queue-compact">
                         <div class="pre-queue-header">
                             <span>預排隊伍 ${q} (${queuePlayers.length}/4)</span>
-                            ${queuePlayers.length === 4 ? '<span style="color:#2e7d32; font-size:0.75rem;">✅ 已額滿</span>' : '<span style="color:#888; font-size:0.72rem;">(點擊下方休息區預排)</span>'}
+                            <div style="display:flex; gap:4px; align-items:center;">
+                                <button class="btn btn-primary btn-sm" style="font-size:0.7rem; padding:1px 5px; background:linear-gradient(135deg, #1565c0, #1e88e5);" onclick="announcePreQueue(${q})">🔊 重複廣播</button>
+                                ${queuePlayers.length === 4 ? '<span style="color:#2e7d32; font-size:0.75rem;">✅ 已額滿</span>' : '<span style="color:#888; font-size:0.72rem;">(未滿)</span>'}
+                            </div>
                         </div>
                         <div class="player-chips">${chips || '<span style="color:#aaa; font-size:0.75rem;">由下方休息區點選預排</span>'}</div>
                         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap:4px; margin-top:2px;">
@@ -1265,7 +1470,6 @@
             document.body.removeChild(link);
         }
 
-        /* 新增：匯入歷史紀錄 CSV 檔案 */
         function importHistoryCSV(event) {
             const file = event.target.files[0];
             if (!file) return;
