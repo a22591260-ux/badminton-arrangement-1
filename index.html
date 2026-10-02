@@ -110,7 +110,7 @@
         }
         .btn-court:hover { background: #c8e6c9; }
 
-        /* Gender Colors */
+        /* Gender Colors (嚴格保持姓名顏色不受影響) */
         .name-male { color: var(--male-color) !important; font-weight: 800; }
         .name-female { color: var(--female-color) !important; font-weight: 800; }
         .name-unknown { color: var(--unknown-color) !important; font-weight: 800; }
@@ -147,14 +147,14 @@
         }
         .player-card.highlight { background-color: var(--veggie-yellow); border-color: var(--veggie-yellow-border); }
         .player-card.left-away { background-color: #eee !important; border-color: #ccc !important; opacity: 0.6; }
-        .player-card.left-away .player-name { color: #777 !important; text-decoration: line-through; }
+        .player-card.left-away .player-name span { color: #777 !important; text-decoration: line-through; }
 
-        /* 等待時間超時顏色 */
-        .player-card.wait-blue { background-color: #e3f2fd !important; border-color: #90caf9 !important; }
-        .player-card.wait-blue .idle-time-text { color: #1565c0 !important; font-weight: bold; }
+        /* 等待時間超時顏色（僅改變卡片背景、邊框與時間文字） */
+        .player-card.wait-blue { background-color: #f0f7ff !important; border-color: #90caf9 !important; }
+        .player-card.wait-blue .idle-time-text { color: #1565c0 !important; font-weight: 800; }
 
-        .player-card.wait-red { background-color: #ffebee !important; border-color: #ef9a9a !important; }
-        .player-card.wait-red .idle-time-text { color: #c62828 !important; font-weight: bold; }
+        .player-card.wait-red { background-color: #fff5f5 !important; border-color: #ef9a9a !important; }
+        .player-card.wait-red .idle-time-text { color: #c62828 !important; font-weight: 800; }
 
         .player-name { font-weight: 800; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
         .player-badge { font-size: 0.62rem; background: #e8f5e9; color: var(--primary-green); padding: 1px 3px; border-radius: 3px; font-weight: bold; }
@@ -291,8 +291,8 @@
                 <span>👥 等待休息區</span>
                 <div style="display:flex; gap:4px; font-size:0.7rem; font-weight:bold;">
                     <span style="background:#fff9c4; color:#f57f17; padding:1px 4px; border-radius:4px; border:1px solid #fbc02d;">🟨 優先</span>
-                    <span style="background:#e3f2fd; color:#1565c0; padding:1px 4px; border-radius:4px; border:1px solid #90caf9;">🟦 &gt;4分</span>
-                    <span style="background:#ffebee; color:#c62828; padding:1px 4px; border-radius:4px; border:1px solid #ef9a9a;">🟥 &gt;7分</span>
+                    <span style="background:#f0f7ff; color:#1565c0; padding:1px 4px; border-radius:4px; border:1px solid #90caf9;">🟦 &gt;4分</span>
+                    <span style="background:#fff5f5; color:#c62828; padding:1px 4px; border-radius:4px; border:1px solid #ef9a9a;">🟥 &gt;7分</span>
                 </div>
             </div>
             
