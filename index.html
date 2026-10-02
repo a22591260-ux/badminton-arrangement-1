@@ -110,7 +110,7 @@
         }
         .btn-court:hover { background: #c8e6c9; }
 
-        /* Gender Colors (嚴格保持姓名顏色不受影響) */
+        /* Gender Colors */
         .name-male { color: var(--male-color) !important; font-weight: 800; }
         .name-female { color: var(--female-color) !important; font-weight: 800; }
         .name-unknown { color: var(--unknown-color) !important; font-weight: 800; }
@@ -145,16 +145,14 @@
             background: white; border: 1px solid #e8f5e9; border-radius: 8px; padding: 6px; display: flex; flex-direction: column; justify-content: space-between; box-shadow: 0 1px 3px rgba(0,0,0,0.02);
             transition: all 0.3s;
         }
-        .player-card.highlight { background-color: var(--veggie-yellow); border-color: var(--veggie-yellow-border); }
+        .player-card.highlight { background-color: var(--veggie-yellow) !important; border-color: var(--veggie-yellow-border) !important; }
         .player-card.left-away { background-color: #eee !important; border-color: #ccc !important; opacity: 0.6; }
         .player-card.left-away .player-name span { color: #777 !important; text-decoration: line-through; }
 
-        /* 等待時間超時顏色（僅改變卡片背景、邊框與時間文字） */
-        .player-card.wait-blue { background-color: #f0f7ff !important; border-color: #90caf9 !important; }
-        .player-card.wait-blue .idle-time-text { color: #1565c0 !important; font-weight: 800; }
-
-        .player-card.wait-red { background-color: #fff5f5 !important; border-color: #ef9a9a !important; }
-        .player-card.wait-red .idle-time-text { color: #c62828 !important; font-weight: 800; }
+        /* 純時間文字變色樣式 */
+        .idle-time-text { transition: color 0.3s; }
+        .time-blue { color: #1565c0 !important; font-weight: 800 !important; }
+        .time-red { color: #c62828 !important; font-weight: 800 !important; }
 
         .player-name { font-weight: 800; font-size: 0.85rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
         .player-badge { font-size: 0.62rem; background: #e8f5e9; color: var(--primary-green); padding: 1px 3px; border-radius: 3px; font-weight: bold; }
@@ -290,9 +288,9 @@
             <div class="section-title">
                 <span>👥 等待休息區</span>
                 <div style="display:flex; gap:4px; font-size:0.7rem; font-weight:bold;">
-                    <span style="background:#fff9c4; color:#f57f17; padding:1px 4px; border-radius:4px; border:1px solid #fbc02d;">🟨 優先</span>
-                    <span style="background:#f0f7ff; color:#1565c0; padding:1px 4px; border-radius:4px; border:1px solid #90caf9;">🟦 &gt;4分</span>
-                    <span style="background:#fff5f5; color:#c62828; padding:1px 4px; border-radius:4px; border:1px solid #ef9a9a;">🟥 &gt;7分</span>
+                    <span style="background:#fff9c4; color:#f57f17; padding:1px 4px; border-radius:4px; border:1px solid #fbc02d;">🟨 優先上場</span>
+                    <span style="color:#1565c0; padding:1px 2px;">⏱️ &gt;4分藍</span>
+                    <span style="color:#c62828; padding:1px 2px;">⏱️ &gt;7分紅</span>
                 </div>
             </div>
             
@@ -1169,7 +1167,7 @@
             render();
         }
 
-        /* 每秒更新等待時間與背景顏色 */
+        /* 每秒更新等待時間與純文字顏色 */
         function updateIdleTimes() {
             const now = Date.now();
             state.players.forEach(p => {
@@ -1180,15 +1178,13 @@
                     const timeText = `${String(mins).padStart(2, '0')}分${String(secs).padStart(2, '0')}秒`;
                     
                     const el = document.getElementById(`idleTime-${p.id}`);
-                    if (el) el.innerText = timeText;
-
-                    const cardEl = document.getElementById(`playerCard-${p.id}`);
-                    if (cardEl) {
-                        cardEl.classList.remove('wait-blue', 'wait-red');
+                    if (el) {
+                        el.innerText = timeText;
+                        el.classList.remove('time-blue', 'time-red');
                         if (diffSec >= 420) { // 7 分鐘 (420秒)
-                            cardEl.classList.add('wait-red');
+                            el.classList.add('time-red');
                         } else if (diffSec >= 240) { // 4 分鐘 (240秒)
-                            cardEl.classList.add('wait-blue');
+                            el.classList.add('time-blue');
                         }
                     }
                 }
@@ -1322,12 +1318,12 @@
                 const secs = diffSec % 60;
                 const timeText = `${String(mins).padStart(2, '0')}分${String(secs).padStart(2, '0')}秒`;
 
-                // 判斷時間超時顏色
-                let waitColorClass = '';
+                // 僅計算時間文字樣式
+                let timeColorClass = '';
                 if (diffSec >= 420) {
-                    waitColorClass = 'wait-red';
+                    timeColorClass = 'time-red';
                 } else if (diffSec >= 240) {
-                    waitColorClass = 'wait-blue';
+                    timeColorClass = 'time-blue';
                 }
 
                 let qBtns = '';
@@ -1343,14 +1339,14 @@
                 else if (p.gender === '?') nameClass = 'name-unknown';
 
                 const cardHTML = `
-                    <div class="player-card ${waitColorClass} ${isHighlight ? 'highlight' : ''}" id="playerCard-${p.id}">
+                    <div class="player-card ${isHighlight ? 'highlight' : ''}" id="playerCard-${p.id}">
                         <div>
                             <div class="player-name">
                                 <span class="${nameClass}">${p.name}</span>
                                 <span class="player-badge">${p.level || '?'}</span>
                             </div>
                             <div class="player-info">
-                                場次: <b>${p.count}</b> | 等待: <span id="idleTime-${p.id}" class="idle-time-text">${timeText}</span>
+                                場次: <b>${p.count}</b> | 等待: <span id="idleTime-${p.id}" class="idle-time-text ${timeColorClass}">${timeText}</span>
                             </div>
                         </div>
                         <div>
