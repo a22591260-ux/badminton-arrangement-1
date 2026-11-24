@@ -616,13 +616,13 @@
         window.onload = function() {
             const todayStr = getTodayLocalDateString();
             loadData();
-            if (!state.currentDate || !/^\d{4}-\d{2}-\d{2}$/.test(state.currentDate)) {
-                state.currentDate = todayStr;
-            }
+            // 每次開啟網頁都自動抓取當天日期，並同步更新 state 與畫面
+            state.currentDate = todayStr;
             if (!state.dailySummaries) {
                 state.dailySummaries = {};
             }
-            document.getElementById('currentDateInput').value = state.currentDate;
+            document.getElementById('currentDateInput').value = todayStr;
+            saveData();
             setInterval(updateIdleTimes, 1000);
             
             initSpeechVoices();
