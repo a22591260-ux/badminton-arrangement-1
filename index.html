@@ -48,27 +48,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
         }
         .app-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 6px; }
-
-        .header-controls {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .voice-gender-select {
-            background: rgba(255, 255, 255, 0.92);
-            color: #1b5e20;
-            font-weight: 800;
-            font-size: 0.85rem;
-            padding: 7px 8px;
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            cursor: pointer;
-        }
 
         /* 放大兩倍的「簽到管理」按鈕 */
         .btn-settings-large {
@@ -264,13 +245,7 @@
     <!-- Header -->
     <div class="app-header">
         <div class="app-title">🥬🏸 蔬食羽球智慧排場</div>
-        <div class="header-controls">
-            <select id="voiceGenderSelect" class="voice-gender-select" onchange="changeVoiceGender(this.value)" title="選擇廣播聲線">
-                <option value="female">👩 女生音</option>
-                <option value="male">👨 男生音</option>
-            </select>
-            <button class="btn btn-settings-large" onclick="toggleInputSection()">⚙️ 簽到管理</button>
-        </div>
+        <button class="btn btn-settings-large" onclick="toggleInputSection()">⚙️ 簽到管理</button>
     </div>
 
     <!-- Navigation Tabs -->
@@ -606,7 +581,6 @@
             feePerPerson: 300,
             waitBlueMin: 4, // 藍色警示分鐘數
             waitRedMin: 7,  // 紅色警示分鐘數
-            voiceGender: "female", // 廣播聲線：'female' 女生音 / 'male' 男生音
             dbPlayers: [],
             players: [],
             courts: { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [], 7: [], 8: [] },
@@ -631,7 +605,6 @@
                 state.dailySummaries = {};
             }
             document.getElementById('currentDateInput').value = state.currentDate;
-            document.getElementById('voiceGenderSelect').value = state.voiceGender || 'female';
             setInterval(updateIdleTimes, 1000);
             
             initSpeechVoices();
@@ -641,11 +614,6 @@
             const ta = document.getElementById('batchNameInput');
             if (ta) autoResizeTextarea(ta);
         };
-
-        function changeVoiceGender(genderVal) {
-            state.voiceGender = (genderVal === 'male') ? 'male' : 'female';
-            saveData();
-        }
 
         function autoResizeTextarea(el) {
             el.style.height = 'auto';
@@ -802,41 +770,32 @@
             }
         }
 
-        function getVoiceByGenderPreference(genderPref) {
+        function getYatingOrBestVoice() {
             if (!availableVoices || availableVoices.length === 0) {
                 if ('speechSynthesis' in window) availableVoices = window.speechSynthesis.getVoices();
             }
 
-            const twVoices = availableVoices.filter(v => v.lang === 'zh-TW' || v.lang === 'zh_TW' || v.lang.startsWith('zh-TW'));
-            const zhVoices = twVoices.length > 0 ? twVoices : availableVoices.filter(v => v.lang.toLowerCase().startsWith('zh'));
-            const pool = zhVoices.length > 0 ? zhVoices : availableVoices;
+            const yatingVoice = availableVoices.find(v => 
+                v.name.includes('Yating') || v.name.includes('雅婷') || v.name.includes('Mei-Jia') || v.name.includes('MeiJia') || v.name.includes('美佳')
+            );
+            if (yatingVoice) return yatingVoice;
 
-            if (genderPref === 'male') {
-                const maleVoice = pool.find(v =>
-                    v.name.toLowerCase().includes('male') ||
-                    v.name.includes('YunJhe') ||
-                    v.name.includes('Kangkang') ||
-                    v.name.includes('Zhiwei') ||
-                    v.name.includes('Danny') ||
-                    v.name.includes('男')
-                );
-                if (maleVoice) return maleVoice;
-            } else {
-                const femaleVoice = pool.find(v =>
-                    v.name.includes('Yating') ||
-                    v.name.includes('雅婷') ||
-                    v.name.includes('Mei-Jia') ||
-                    v.name.includes('MeiJia') ||
-                    v.name.includes('美佳') ||
-                    v.name.toLowerCase().includes('female') ||
-                    v.name.includes('HsiaoChen') ||
-                    v.name.includes('Hanhan') ||
-                    v.name.includes('Xiaoxiao')
+            const twVoices = availableVoices.filter(v => v.lang === 'zh-TW' || v.lang === 'zh_TW' || v.lang.startsWith('zh-TW'));
+
+            if (twVoices.length > 0) {
+                const femaleVoice = twVoices.find(v => 
+                    v.name.toLowerCase().includes('female') || 
+                    v.name.includes('HsiaoChen') || 
+                    v.name.includes('Hanhan') || 
+                    v.name.includes('Xiaoxiao') ||
+                    v.name.includes('Natural')
                 );
                 if (femaleVoice) return femaleVoice;
+
+                return twVoices[0];
             }
 
-            return twVoices[0] || pool[0] || null;
+            return null;
         }
 
         function enqueueSpeech(speechText) {
@@ -857,9 +816,7 @@
             }
 
             playDingDongSound(() => {
-                const genderPref = state.voiceGender || 'female';
-                const selectedVoice = getVoiceByGenderPreference(genderPref);
-                const basePitch = genderPref === 'male' ? 0.78 : 1.12;
+                const selectedVoice = getYatingOrBestVoice();
 
                 const createUtterance = (text, pitchVal) => {
                     const u = new SpeechSynthesisUtterance(text);
@@ -870,8 +827,8 @@
                     return u;
                 };
 
-                const u1 = createUtterance(currentText, basePitch);
-                const u2 = createUtterance(currentText, Math.min(1.5, basePitch + 0.04));
+                const u1 = createUtterance(currentText, 1.05);
+                const u2 = createUtterance(currentText, 1.1);
 
                 u2.onend = () => {
                     setTimeout(() => {
@@ -894,8 +851,6 @@
             state.currentDate = document.getElementById('currentDateInput').value;
             state.location = document.getElementById('locationInput').value;
             state.feePerPerson = parseInt(document.getElementById('feePerPerson').value) || 0;
-            const voiceSel = document.getElementById('voiceGenderSelect');
-            if (voiceSel) state.voiceGender = voiceSel.value;
             syncDailySummarySnapshot();
             localStorage.setItem('veggie_badminton_v3_state', JSON.stringify(state));
         }
@@ -931,7 +886,6 @@
                     document.getElementById('feePerPerson').value = state.feePerPerson !== undefined ? state.feePerPerson : 300;
                     if (!state.waitBlueMin) state.waitBlueMin = 4;
                     if (!state.waitRedMin) state.waitRedMin = 7;
-                    if (!state.voiceGender) state.voiceGender = "female";
                     if (!state.courtNames) state.courtNames = {};
                     if (!state.courts) state.courts = {};
                     for (let i = 1; i <= 8; i++) {
@@ -1800,7 +1754,6 @@
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            const todayStr = new Date().toISOString().slice(0, 10);
             link.setAttribute("download", `badminton_history_${selectedDate}.csv`);
             document.body.appendChild(link);
             link.click();
